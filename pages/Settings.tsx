@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
@@ -96,8 +97,8 @@ export const Settings: React.FC = () => {
             onChange={(e) => setLanguage(e.target.value as any)}
             className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none"
           >
-            <option value="so">Somali</option>
             <option value="en">English</option>
+            <option value="so">Somali</option>
           </select>
         </div>
 

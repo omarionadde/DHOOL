@@ -49,7 +49,11 @@ export interface Patient {
   id: string;
   name: string;
   age: number;
+  gender?: string;
   phone: string;
+  address?: string;
+  bloodType?: string;
+  allergies?: string;
   lastVisit: string;
   condition: string;
 }
@@ -113,7 +117,7 @@ export interface Transaction {
   paidAmount: number;
   balance: number;
   items: number;
-  method: 'Cash' | 'Zaad';
+  method: 'Cash' | 'EVC';
   cashierName?: string;
   userId?: string;
   patientId?: string;

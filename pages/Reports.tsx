@@ -60,7 +60,8 @@ export const Reports: React.FC = () => {
             onClick={handleDownloadPDF}
             className="flex-1 md:flex-none px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            {/* Fix: Duplicate x2 attribute removed and changed to y2 for the arrow stem */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             {t('downloadPdf')}
           </button>
           <button 
@@ -136,6 +137,7 @@ export const Reports: React.FC = () => {
                    <th className="p-3">ID</th>
                    <th className="p-3">{t('date')}</th>
                    <th className="p-3">Patient</th>
+                   <th className="p-3">{t('cashier')}</th>
                    <th className="p-3">{t('method')}</th>
                    <th className="p-3 text-right">{t('total')}</th>
                    <th className="p-3 text-right">{t('amountPaid')}</th>
@@ -145,7 +147,7 @@ export const Reports: React.FC = () => {
               <tbody className="divide-y divide-gray-50">
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-gray-400">No transactions found.</td>
+                    <td colSpan={8} className="p-8 text-center text-gray-400">No transactions found.</td>
                   </tr>
                 ) : (
                   filteredTransactions.map(tx => (
@@ -153,8 +155,10 @@ export const Reports: React.FC = () => {
                       <td className="p-3 text-[10px] font-mono text-gray-400">#{tx.id.slice(-6)}</td>
                       <td className="p-3 text-xs">{tx.date}</td>
                       <td className="p-3 text-xs font-bold text-gray-700">{tx.patientName || t('generalSale')}</td>
+                      <td className="p-3 text-xs font-medium text-blue-600">{tx.cashierName || 'N/A'}</td>
                       <td className="p-3">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase ${tx.method === 'Zaad' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                        {/* Fix: changed 'Zaad' to 'EVC' to match the Transaction method type */}
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase ${tx.method === 'EVC' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
                           {tx.method}
                         </span>
                       </td>

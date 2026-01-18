@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { CartItem, Product } from '../types';
+import { CartItem, Product, Patient } from '../types';
 import { Invoice } from '../components/Invoice';
 
 export const POS: React.FC = () => {
@@ -11,6 +11,7 @@ export const POS: React.FC = () => {
   
   // Checkout Details
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [phoneSearchTerm, setPhoneSearchTerm] = useState('');
   const [paidAmountInput, setPaidAmountInput] = useState<string>('');
   
   // Invoice State
@@ -33,6 +34,16 @@ export const POS: React.FC = () => {
     setPaidAmountInput(total.toString());
   }, [total]);
 
+  // Handle phone search to auto-select patient
+  useEffect(() => {
+    if (phoneSearchTerm.trim().length > 3) {
+      const match = patients.find(p => p.phone.includes(phoneSearchTerm));
+      if (match) {
+        setSelectedPatientId(match.id);
+      }
+    }
+  }, [phoneSearchTerm, patients]);
+
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return;
     
@@ -49,7 +60,7 @@ export const POS: React.FC = () => {
     setCart(cart.filter(item => item.id !== id));
   };
 
-  const handleCheckout = (method: 'Cash' | 'Zaad') => {
+  const handleCheckout = (method: 'Cash' | 'EVC') => {
     if (cart.length === 0) return;
     
     const paid = parseFloat(paidAmountInput) || 0;
@@ -76,7 +87,7 @@ export const POS: React.FC = () => {
       paidAmount: paid,
       balance,
       id: transactionId,
-      method,
+      method: method === 'EVC' ? 'EVC / E-Dahab' : 'Cash',
       date,
       patientName: patient?.name
     });
@@ -85,6 +96,7 @@ export const POS: React.FC = () => {
     // Reset Cart & Form
     setCart([]);
     setSelectedPatientId('');
+    setPhoneSearchTerm('');
     setShowCheckout(false);
   };
 
@@ -171,7 +183,7 @@ export const POS: React.FC = () => {
                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center font-bold text-gray-400 border border-gray-100">x{item.quantity}</div>
                    <div className="max-w-[140px]">
                      <p className="font-bold text-gray-800 text-sm truncate">{item.name}</p>
-                     <p className="text-xs text-gray-500">${(item.price * item.quantity).toFixed(2)}</p>
+                     <p className="text-xs text-gray-500">${((Number(item.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}</p>
                    </div>
                 </div>
                 <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 p-2">
@@ -183,13 +195,24 @@ export const POS: React.FC = () => {
         </div>
 
         {/* Checkout Billing Details */}
-        <div className="p-4 bg-blue-50 border-t border-blue-100 space-y-3">
+        <div className="p-4 bg-blue-50 border-t border-blue-100 space-y-3 relative">
+           <div>
+             <label className="text-[11px] font-black text-blue-600 uppercase tracking-widest">Search No</label>
+             <input 
+               type="text" 
+               placeholder="Search phone..."
+               value={phoneSearchTerm}
+               onChange={(e) => setPhoneSearchTerm(e.target.value)}
+               className="w-full mt-1 p-2 bg-white border border-blue-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 shadow-sm"
+             />
+           </div>
+           
            <div>
              <label className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{t('selectPatient')}</label>
              <select 
                value={selectedPatientId} 
                onChange={(e) => setSelectedPatientId(e.target.value)}
-               className="w-full mt-1 p-2 bg-white border border-blue-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+               className="w-full mt-1 p-3 bg-white border border-blue-200 rounded-lg text-sm font-bold focus:outline-none focus:border-blue-500 shadow-sm"
              >
                <option value="">{t('generalSale')}</option>
                {patients.map(p => (
@@ -225,15 +248,15 @@ export const POS: React.FC = () => {
           <div className="grid grid-cols-2 gap-3">
             <button 
               onClick={() => handleCheckout('Cash')}
-              className="py-3 px-4 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition-colors"
+              className="py-3 px-4 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition-colors shadow-sm"
             >
               Cash
             </button>
             <button 
-              onClick={() => handleCheckout('Zaad')}
+              onClick={() => handleCheckout('EVC')}
               className="py-3 px-4 bg-green-600 text-white font-bold rounded-xl text-sm hover:bg-green-700 transition-colors shadow-lg shadow-green-100"
             >
-              Zaad / E-Dahab
+              EVC / E-Dahab
             </button>
           </div>
         </div>

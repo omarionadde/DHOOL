@@ -25,7 +25,8 @@ interface AppContextType {
   deleteAppointment: (id: string) => Promise<void>;
   updateAppointmentStatus: (id: string, status: 'Confirmed' | 'Pending' | 'Cancelled') => Promise<void>;
   transactions: Transaction[];
-  processSale: (items: {id: string, quantity: number}[], total: number, method: 'Cash' | 'Zaad', paidAmount: number, patientId?: string, patientName?: string) => Promise<void>;
+  processSale: (items: {id: string, quantity: number}[], total: number, method: 'Cash' | 'EVC', paidAmount: number, patientId?: string, patientName?: string) => Promise<void>;
+  settleBalance: (patientId: string, patientName: string, amount: number, method: 'Cash' | 'EVC') => Promise<void>;
   employees: Employee[];
   addEmployee: (employee: Employee) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
@@ -130,7 +131,10 @@ const translations = {
     outstanding: 'Outstanding',
     paidInFull: 'Paid In Full',
     downloadPdf: 'Download PDF',
-    printReport: 'Print Report'
+    printReport: 'Print Report',
+    settleBalance: 'Settle Balance',
+    payNow: 'Pay Now',
+    paymentSuccess: 'Payment recorded successfully'
   },
   so: {
     dashboard: 'Boga Hore',
@@ -216,7 +220,10 @@ const translations = {
     outstanding: 'Lagu leeyahay',
     paidInFull: 'Wada bixiyay',
     downloadPdf: 'PDF soo deji',
-    printReport: 'Report-ka Daabac'
+    printReport: 'Report-ka Daabac',
+    settleBalance: 'Ka jar Lacagta',
+    payNow: 'Bixi Hadda',
+    paymentSuccess: 'Lacag bixinta waa la keydiyay'
   }
 };
 
@@ -228,7 +235,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [language, setLanguage] = useState<Language>('so');
+  const [language, setLanguage] = useState<Language>('en');
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DASHBOARD);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -423,7 +430,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await supabase.from('employees').delete().eq('id', id);
   };
 
-  const processSale = async (cartItems: {id: string, quantity: number}[], total: number, method: 'Cash' | 'Zaad', paidAmount: number, patientId?: string, patientName?: string) => {
+  const processSale = async (cartItems: {id: string, quantity: number}[], total: number, method: 'Cash' | 'EVC', paidAmount: number, patientId?: string, patientName?: string) => {
     // Update Stock
     const updatedProducts = products.map(p => {
       const itemInCart = cartItems.find(c => c.id === p.id);
@@ -458,6 +465,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await supabase.from('transactions').insert([newTransaction]);
   };
 
+  const settleBalance = async (patientId: string, patientName: string, amount: number, method: 'Cash' | 'EVC') => {
+    const newTransaction: Transaction = {
+      id: Date.now().toString(),
+      date: new Date().toLocaleString(),
+      total: 0, // No new items, just payment
+      paidAmount: amount,
+      balance: -amount, // Negative balance entry to offset the existing debt
+      items: 0,
+      method,
+      cashierName: user?.name,
+      userId: user?.id,
+      patientId,
+      patientName
+    };
+    
+    setTransactions(prev => [newTransaction, ...prev]);
+    await supabase.from('transactions').insert([newTransaction]);
+  };
+
   const t = (key: string) => (translations[language] as any)[key] || key;
 
   return (
@@ -466,7 +492,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       products, addProduct, updateProduct, deleteProduct,
       patients, addPatient, deletePatient,
       appointments, addAppointment, deleteAppointment, updateAppointmentStatus,
-      transactions, processSale,
+      transactions, processSale, settleBalance,
       employees, addEmployee, deleteEmployee,
       expenses, addExpense, deleteExpense,
       patientHistory, addPatientHistory,
