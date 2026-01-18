@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, Product, Patient, Appointment, Language, Tab, Transaction, Employee, Expense, PatientHistory, Prescription } from '../types';
 import { supabase } from '../lib/supabase';
@@ -30,16 +29,13 @@ interface AppContextType {
   employees: Employee[];
   addEmployee: (employee: Employee) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
-  // Expenses
   expenses: Expense[];
   addExpense: (expense: Expense) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
-  // Patient Details
   patientHistory: PatientHistory[];
   addPatientHistory: (history: PatientHistory) => Promise<void>;
   prescriptions: Prescription[];
   addPrescription: (prescription: Prescription) => Promise<void>;
-  // User Management
   appUsers: User[];
   addUser: (user: User) => Promise<{success: boolean, error?: string}>;
   deleteUser: (id: string) => Promise<void>;
@@ -249,51 +245,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [patientHistory, setPatientHistory] = useState<PatientHistory[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
 
+  const fetchData = async () => {
+    if (!user) return;
+    try {
+      const [
+        { data: prodData },
+        { data: patData },
+        { data: appData },
+        { data: txData },
+        { data: empData },
+        { data: expData },
+        { data: histData },
+        { data: prescData },
+        { data: userData }
+      ] = await Promise.all([
+        supabase.from('products').select('*'),
+        supabase.from('patients').select('*'),
+        supabase.from('appointments').select('*'),
+        supabase.from('transactions').select('*').order('date', { ascending: false }),
+        supabase.from('employees').select('*'),
+        supabase.from('expenses').select('*'),
+        supabase.from('patient_history').select('*'),
+        supabase.from('prescriptions').select('*'),
+        supabase.from('users').select('*')
+      ]);
+
+      if (prodData) setProducts(prodData);
+      if (patData) setPatients(patData);
+      if (appData) setAppointments(appData);
+      if (txData) setTransactions(txData);
+      if (empData) setEmployees(empData);
+      if (expData) setExpenses(expData);
+      if (histData) setPatientHistory(histData);
+      if (prescData) setPrescriptions(prescData);
+      if (userData) setAppUsers(userData as any);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const { data: prodData } = await supabase.from('products').select('*');
-        if (prodData) setProducts(prodData);
-
-        const { data: patData } = await supabase.from('patients').select('*');
-        if (patData) setPatients(patData);
-
-        const { data: appData } = await supabase.from('appointments').select('*');
-        if (appData) setAppointments(appData);
-
-        const { data: txData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
-        if (txData) setTransactions(txData);
-
-        const { data: empData } = await supabase.from('employees').select('*');
-        if (empData) setEmployees(empData);
-
-        const { data: expData } = await supabase.from('expenses').select('*');
-        if (expData) setExpenses(expData);
-
-        const { data: histData } = await supabase.from('patient_history').select('*');
-        if (histData) setPatientHistory(histData);
-
-        const { data: prescData } = await supabase.from('prescriptions').select('*');
-        if (prescData) setPrescriptions(prescData);
-
-        const { data: userData } = await supabase.from('users').select('*');
-        if (userData) setAppUsers(userData as any);
-      } catch (error) {
-        console.error("Connection error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (user) {
       fetchData();
     } else {
       setIsLoading(false);
     }
   }, [user]);
-
-  useEffect(() => localStorage.setItem('user', JSON.stringify(user)), [user]);
 
   const login = async (email: string, pass: string): Promise<{success: boolean, error?: string}> => {
     setIsLoading(true);
@@ -305,27 +304,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .eq('password', pass)
         .single();
 
-      if (error) {
+      if (error || !data) {
         setIsLoading(false);
-        return { success: false, error: error.message };
-      }
-      if (!data) {
-         setIsLoading(false);
-         return { success: false, error: "User not found or password incorrect" };
+        return { success: false, error: error?.message || "User not found" };
       }
       setUser(data);
-      setActiveTab(Tab.DASHBOARD);
+      localStorage.setItem('user', JSON.stringify(data));
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e.message };
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    setTransactions([]);
+    setPatients([]);
   };
 
   const updateCurrentUser = async (name: string, password?: string): Promise<{success: boolean, error?: string}> => {
@@ -345,14 +340,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addUser = async (newUser: User): Promise<{success: boolean, error?: string}> => {
-    try {
-        const { error } = await supabase.from('users').insert([newUser]);
-        if (error) return { success: false, error: error.message };
-        setAppUsers(prev => [...prev, newUser]);
-        return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
-    }
+    const { error } = await supabase.from('users').insert([newUser]);
+    if (error) return { success: false, error: error.message };
+    setAppUsers(prev => [...prev, newUser]);
+    return { success: true };
   };
 
   const deleteUser = async (id: string) => {
@@ -362,7 +353,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addExpense = async (expense: Expense) => {
     setExpenses(prev => [expense, ...prev]);
-    await supabase.from('expenses').insert([expense]);
+    const { error } = await supabase.from('expenses').insert([expense]);
+    if (error) alert("Error: " + error.message);
   };
 
   const deleteExpense = async (id: string) => {
@@ -372,7 +364,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addProduct = async (product: Product) => {
     setProducts(prev => [...prev, product]);
-    await supabase.from('products').insert([product]);
+    const { error } = await supabase.from('products').insert([product]);
+    if (error) alert("Error: " + error.message);
   };
   
   const updateProduct = async (updatedProduct: Product) => {
@@ -387,7 +380,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addPatient = async (patient: Patient) => {
     setPatients(prev => [...prev, patient]);
-    await supabase.from('patients').insert([patient]);
+    const { error } = await supabase.from('patients').insert([patient]);
+    if (error) alert("Error: " + error.message);
   };
 
   const deletePatient = async (id: string) => {
@@ -397,17 +391,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addPatientHistory = async (history: PatientHistory) => {
     setPatientHistory(prev => [history, ...prev]);
-    await supabase.from('patient_history').insert([history]);
+    const { error } = await supabase.from('patient_history').insert([history]);
+    if (error) alert("Error: " + error.message);
   };
 
   const addPrescription = async (prescription: Prescription) => {
     setPrescriptions(prev => [prescription, ...prev]);
-    await supabase.from('prescriptions').insert([prescription]);
+    const { error } = await supabase.from('prescriptions').insert([prescription]);
+    if (error) alert("Error: " + error.message);
   };
 
   const addAppointment = async (appointment: Appointment) => {
     setAppointments(prev => [...prev, appointment]);
-    await supabase.from('appointments').insert([appointment]);
+    const { error } = await supabase.from('appointments').insert([appointment]);
+    if (error) alert("Error: " + error.message);
   };
   
   const deleteAppointment = async (id: string) => {
@@ -422,7 +419,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addEmployee = async (employee: Employee) => {
     setEmployees(prev => [...prev, employee]);
-    await supabase.from('employees').insert([employee]);
+    const { error } = await supabase.from('employees').insert([employee]);
+    if (error) alert("Error: " + error.message);
   };
 
   const deleteEmployee = async (id: string) => {
@@ -431,57 +429,93 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const processSale = async (cartItems: {id: string, quantity: number}[], total: number, method: 'Cash' | 'EVC', paidAmount: number, patientId?: string, patientName?: string) => {
-    // Update Stock
-    const updatedProducts = products.map(p => {
-      const itemInCart = cartItems.find(c => c.id === p.id);
-      if (itemInCart) return { ...p, stock: Math.max(0, p.stock - itemInCart.quantity) };
-      return p;
-    });
-    setProducts(updatedProducts);
-
-    for (const item of cartItems) {
-      const product = products.find(p => p.id === item.id);
-      if (product) {
-        const newStock = Math.max(0, product.stock - item.quantity);
-        await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
-      }
-    }
-
+    const saleTotal = Number(total) || 0;
+    const salePaid = Number(paidAmount) || 0;
+    const saleBalance = saleTotal - salePaid;
+    
     const newTransaction: Transaction = {
       id: Date.now().toString(),
-      date: new Date().toLocaleString(),
-      total,
-      paidAmount,
-      balance: total - paidAmount,
-      items: cartItems.reduce((acc, curr) => acc + curr.quantity, 0),
+      date: new Date().toISOString(),
+      total: saleTotal,
+      paidAmount: salePaid,
+      balance: saleBalance,
+      items: cartItems.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0),
       method,
-      cashierName: user?.name,
+      cashierName: user?.name || 'Admin',
       userId: user?.id,
-      patientId,
-      patientName
+      patientId: patientId || undefined,
+      patientName: patientName || undefined
     };
     
+    // Optimistic Update
     setTransactions(prev => [newTransaction, ...prev]);
-    await supabase.from('transactions').insert([newTransaction]);
+
+    // DB Sync
+    const { error } = await supabase.from('transactions').insert([{
+       id: newTransaction.id,
+       date: newTransaction.date,
+       total: newTransaction.total,
+       paidAmount: newTransaction.paidAmount,
+       balance: newTransaction.balance,
+       items: newTransaction.items,
+       method: newTransaction.method,
+       cashierName: newTransaction.cashierName,
+       userId: newTransaction.userId,
+       patientId: newTransaction.patientId,
+       patientName: newTransaction.patientName
+    }]);
+    
+    if (error) {
+      console.error("Sale Process Error Full:", JSON.stringify(error, null, 2));
+      alert("KHALAD DATABASE: " + error.message + "\n\nHubaal ka dhig in aad run gareeyay SQL Reset-ka cusub.");
+      setTransactions(prev => prev.filter(t => t.id !== newTransaction.id));
+    } else {
+      for (const item of cartItems) {
+        const prod = products.find(p => p.id === item.id);
+        if (prod) {
+          const newStock = Math.max(0, prod.stock - item.quantity);
+          await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+          setProducts(prev => prev.map(p => p.id === item.id ? { ...p, stock: newStock } : p));
+        }
+      }
+    }
   };
 
   const settleBalance = async (patientId: string, patientName: string, amount: number, method: 'Cash' | 'EVC') => {
+    const payAmt = Number(amount) || 0;
     const newTransaction: Transaction = {
       id: Date.now().toString(),
-      date: new Date().toLocaleString(),
-      total: 0, // No new items, just payment
-      paidAmount: amount,
-      balance: -amount, // Negative balance entry to offset the existing debt
+      date: new Date().toISOString(),
+      total: 0, 
+      paidAmount: payAmt,
+      balance: -payAmt, 
       items: 0,
       method,
-      cashierName: user?.name,
+      cashierName: user?.name || 'Admin',
       userId: user?.id,
       patientId,
       patientName
     };
     
     setTransactions(prev => [newTransaction, ...prev]);
-    await supabase.from('transactions').insert([newTransaction]);
+    const { error } = await supabase.from('transactions').insert([{
+       id: newTransaction.id,
+       date: newTransaction.date,
+       total: newTransaction.total,
+       paidAmount: newTransaction.paidAmount,
+       balance: newTransaction.balance,
+       items: newTransaction.items,
+       method: newTransaction.method,
+       cashierName: newTransaction.cashierName,
+       userId: newTransaction.userId,
+       patientId: newTransaction.patientId,
+       patientName: newTransaction.patientName
+    }]);
+    
+    if (error) {
+      alert("KHALAD: Payment-ka lama keydin. " + error.message);
+      setTransactions(prev => prev.filter(t => t.id !== newTransaction.id));
+    }
   };
 
   const t = (key: string) => (translations[language] as any)[key] || key;

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Logo } from '../components/Logo';
@@ -10,10 +9,21 @@ export const Reports: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
 
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? dateStr : date.toLocaleString();
+    } catch {
+      return dateStr;
+    }
+  };
+
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
+      const txDate = formatDate(tx.date);
       const matchesSearch = tx.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             tx.method.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            txDate.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (tx.cashierName && tx.cashierName.toLowerCase().includes(searchTerm.toLowerCase())) ||
                             (tx.patientName && tx.patientName.toLowerCase().includes(searchTerm.toLowerCase()));
       
@@ -26,7 +36,6 @@ export const Reports: React.FC = () => {
   const totalRevenue = filteredTransactions.reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
   const totalReceived = filteredTransactions.reduce((acc, curr) => acc + (Number(curr.paidAmount) || 0), 0);
   const totalBalance = filteredTransactions.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0);
-  const totalItemsSold = filteredTransactions.reduce((acc, curr) => acc + (Number(curr.items) || 0), 0);
 
   const handlePrint = () => {
     window.print();
@@ -60,7 +69,6 @@ export const Reports: React.FC = () => {
             onClick={handleDownloadPDF}
             className="flex-1 md:flex-none px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
           >
-            {/* Fix: Duplicate x2 attribute removed and changed to y2 for the arrow stem */}
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             {t('downloadPdf')}
           </button>
@@ -74,7 +82,6 @@ export const Reports: React.FC = () => {
         </div>
       </div>
       
-      {/* Search & Filter Bar */}
       <div className="flex flex-col md:flex-row gap-4 mb-8 print:hidden">
         <div className="relative flex-1">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -103,7 +110,6 @@ export const Reports: React.FC = () => {
       </div>
 
       <div id="report-container" className="space-y-8 bg-white print:p-8">
-        {/* Printable Header */}
         <div className="hidden print:flex flex-col items-center mb-8 border-b-2 border-gray-100 pb-6">
            <Logo />
            <p className="text-sm text-gray-500 uppercase tracking-widest mt-4 font-bold">Sales & Revenue Report | {new Date().toLocaleDateString()}</p>
@@ -153,11 +159,10 @@ export const Reports: React.FC = () => {
                   filteredTransactions.map(tx => (
                     <tr key={tx.id} className="hover:bg-gray-50">
                       <td className="p-3 text-[10px] font-mono text-gray-400">#{tx.id.slice(-6)}</td>
-                      <td className="p-3 text-xs">{tx.date}</td>
+                      <td className="p-3 text-xs">{formatDate(tx.date)}</td>
                       <td className="p-3 text-xs font-bold text-gray-700">{tx.patientName || t('generalSale')}</td>
                       <td className="p-3 text-xs font-medium text-blue-600">{tx.cashierName || 'N/A'}</td>
                       <td className="p-3">
-                        {/* Fix: changed 'Zaad' to 'EVC' to match the Transaction method type */}
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase ${tx.method === 'EVC' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
                           {tx.method}
                         </span>
